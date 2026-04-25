@@ -1,3 +1,3 @@
 <?php
-echo "<h1 style="color: red">Hello CI/CD World</h1>";
+echo "<h1>Test. Hello CI/CD World</h1>";
 ?>
