@@ -35,11 +35,18 @@ pipeline {
         stage('Test') {
             steps {
                 sh '''
+                # Activate the virtual environment
                 . venv/bin/activate
+            
+                # Install/Update the required libraries inside the venv
+                pip install selenium webdriver-manager
+            
+                # Run the test
                 python test.py
                 '''
-        	}
-    	}
+            }
+        }
+
  
         stage('Deploy') {
             steps {
