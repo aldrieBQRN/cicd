@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        // Updated to your system's Java 21 path based on previous steps
+        // Updated for Ubuntu 24.04 Java path
         JAVA_HOME = "/usr/lib/jvm/java-21-openjdk-amd64"
         DEPLOY = "/var/www/html"
     }
@@ -10,9 +10,9 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Ensure YOUR_USERNAME is replaced with your actual GitHub username
+                // Connects to your repository
                 git branch: 'main',
-                    url: 'https://github.com/YOUR_USERNAME/cicd.git',
+                    url: 'https://github.com/aldrieBQRN/cicd.git',
                     credentialsId: 'github-pat'
             }
         }
@@ -20,6 +20,7 @@ pipeline {
         stage('Setup Python') {
             steps {
                 sh '''
+                # Create and update the virtual environment
                 python3 -m venv venv
                 . venv/bin/activate
                 pip install selenium webdriver-manager
@@ -30,13 +31,14 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
-                # Remove the default index.html to ensure your file takes priority
+                # 1. Remove default Apache index to prevent priority conflicts
                 sudo rm -f ${DEPLOY}/index.html
                
-                # Sync files to the web directory
-                sudo rsync -av --delete --exclude='venv' --exclude='.git' ./ ${DEPLOY}/
+                # 2. Sync project files to the web server directory
+                # We exclude venv and .git to keep the web server clean
+                sudo rsync -av --delete --exclude='venv' --exclude='.git' . ${DEPLOY}/
                
-                # Fix permissions
+                # 3. Set correct ownership and permissions for Apache
                 sudo chown -R www-data:www-data ${DEPLOY}
                 sudo chmod -R 755 ${DEPLOY}
                 '''
@@ -45,16 +47,16 @@ pipeline {
 
         stage('Start Apache') {
             steps {
-                // Jenkins needs the NOPASSWD visudo setup you did earlier for this
-                sudo systemctl restart apache2
+                // Wrapped in sh to avoid Groovy syntax errors
+                sh 'sudo systemctl restart apache2'
             }
         }
 
         stage('Test') {
             steps {
                 sh '''
+                # Run the Selenium test against the freshly deployed site
                 . venv/bin/activate
-                # No Xvfb needed since we use --headless=new in test.py
                 python test.py
                 '''
             }
@@ -63,9 +65,14 @@ pipeline {
 
     post {
         always {
-            // Clean up any stray chrome processes if needed
+            // Cleans up any background Chrome processes to free up memory
             sh 'pkill -u jenkins chrome || true'
+        }
+        success {
+            echo 'Pipeline completed successfully! Site is live and tested.'
+        }
+        failure {
+            echo 'Pipeline failed. Check the console output for details.'
         }
     }
 }
-
